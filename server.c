@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 void error(const char *msg)
 {
@@ -56,7 +57,8 @@ int main(int argc, char *argv[])
         error("Error on Accept.");
     }
 
-    printf("Client connected.\n");
+    char *ip_cli=inet_ntoa(cli_addr.sin_addr);
+    printf("Client connected. IP:%s\n",ip_cli);
     
     while (1)
     {
