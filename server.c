@@ -6,6 +6,11 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <pthread.h>
+
+void *send_pro(void *arg);
+void *recv_pro(void *arg);
+int handle(void *arg);
 
 void error(const char *msg)
 {
@@ -17,12 +22,11 @@ int main(int argc, char *argv[])
 {
     if (argc < 2)
     {
-        fprintf(stderr, "Port No. not provide. Program terminated");
+        fprintf(stderr, "Port No. not provide. Program terminated\n");
         exit(1);
     }
 
     int sockfd, newsockfd, portno, n;
-    char buffer[255];
 
     struct sockaddr_in serv_addr, cli_addr;
     socklen_t client;
@@ -57,32 +61,57 @@ int main(int argc, char *argv[])
         error("Error on Accept.");
     }
 
-    char *ip_cli=inet_ntoa(cli_addr.sin_addr);
-    printf("Client connected. IP:%s\n",ip_cli);
-    
-    while (1)
-    {
-        memset(buffer, 0, 255);
-        n = read(newsockfd, buffer, 255);
-        if (n < 0)
-        {
-            error("Error on reading.");
-        }
-        printf("Client said: %s\n", buffer);
+    char *ip_cli = inet_ntoa(cli_addr.sin_addr);
+    printf("Client connected. IP:%s\n", ip_cli);
 
-        memset(buffer, 0, 255);
-        fgets(buffer, 255, stdin);
-        n = write(newsockfd, buffer, strlen(buffer));
-        if (n < 0)
-        {
-            error("Error on writing.");
-        }
-
-        if (!strncmp("bye", buffer, 3))
-            break;
-    }
+    handle(&newsockfd);
 
     close(newsockfd);
     close(sockfd);
+    return 0;
+}
+
+int handle(void *arg)
+{
+    pthread_t recv_thr, send_thr;
+
+    pthread_create(&recv_thr, NULL, recv_pro, arg);
+    pthread_create(&send_thr, NULL, send_pro, arg);
+    pthread_join(recv_thr, 0);
+    pthread_join(send_thr, 0);
+}
+
+void *recv_pro(void *arg)
+{
+    char recv_buf[255];
+    int n;
+    int *sockfd = (int *)arg;
+    while (1)
+    {
+        memset(recv_buf, 0, 255);
+        n = read(*sockfd, recv_buf, 255);
+        if (n < 0)
+            error("Error on reading.");
+        printf("Client said: %s", recv_buf);
+        if (!strncmp("bye", recv_buf, 3))
+            break;
+    }
+    return 0;
+}
+void *send_pro(void *arg)
+{
+    char send_buf[255];
+    int n;
+    int *sockfd = (int *)arg;
+    while (1)
+    {
+        memset(send_buf, 0, 255);
+        fgets(send_buf, 255, stdin);
+        n = write(*sockfd, send_buf, strlen(send_buf));
+        if (n < 0)
+            error("Error on writing.");
+        if (!strncmp("bye", send_buf, 3))
+            break;
+    }
     return 0;
 }
